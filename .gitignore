@@ -1,0 +1,17 @@
+# secrets
+.env
+.streamlit/secrets.toml
+
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# generated index (rebuild with build_index.py)
+vector_store/
+
+# optional: guideline PDFs jin ka copyright aap ka na ho
+knowledge_base/*.pdf
+
+.DS_Store
