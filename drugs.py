@@ -89,6 +89,54 @@ def format_rows(rows):
         lines.append(
             f"- {r['generic_name']} ({r['composition_strength']}; formula {r['chemical_formula']}) | "
             f"Pakistani brands: {r['pk_brands']} | for: {r['target']} | "
-            f"dose: {r['adult_dose']}, {r['frequency']}, for {r['duration']} | {r['rx_status']} | "
+            f"dose: {r['adult_dose']}, {r['frequency']}, duration: {r['duration']} | {r['rx_status']} | "
             f"children: {r['children_note']} | note: {r['notes']}")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------- the model's OWN suggestions (names only)
+BLOCKED = {                          # never allowed as a model-only suggestion
+    "antibiotic": ["amoxicillin", "ampicillin", "penicillin", "augmentin", "clavulan", "azithromycin", "clarithromycin",
+                   "erythromycin", "ciprofloxacin", "levofloxacin", "ofloxacin", "metronidazole", "nitrofurantoin",
+                   "cotrimoxazole", "trimethoprim", "clindamycin", "gentamicin", "meropenem", "vancomycin"],
+    "steroid": ["prednisolone", "prednisone", "dexamethasone", "hydrocortisone", "betamethasone", "steroid", "cortico"],
+    "controlled drug": ["tramadol", "morphine", "codeine", "pethidine", "diazepam", "alprazolam", "lorazepam",
+                        "clonazepam", "zolpidem", "ketamine"],
+    "painkiller (NSAID)": ["ibuprofen", "diclofenac", "naproxen", "aspirin", "mefenamic", "ketorolac", "indomethacin",
+                           "piroxicam", "celecoxib", "etoricoxib", "nimesulide", "brufen", "ponstan", "disprin"],
+    "blood thinner": ["warfarin", "heparin", "clopidogrel"],
+}
+
+
+def _words(text):
+    return {w for w in re.findall(r"[a-z]{4,}", (text or "").lower())}
+
+
+def _same_drug(name, row):
+    return bool(_words(name) & (_words(row["generic_name"]) | _words(row["pk_brands"])))
+
+
+def check_model_suggestions(suggestions, facts, allowed, removed):
+    """suggestions = [{'name','reason'}]. Returns (ok, rejected). Safety is decided by code, not by the model."""
+    allergies = str(facts.get("allergies", "")).lower()
+    removed_words = set().union(*[_words(g) for g, _ in removed]) if removed else set()
+    ok, rejected = [], []
+    for item in suggestions:
+        name = str(item.get("name", "")).strip()
+        low = name.lower()
+        if not name:
+            continue
+        if any(_same_drug(name, r) for r in allowed):
+            continue                                       # already in the verified list
+        reason = None
+        if _words(name) & removed_words:
+            reason = "excluded for safety"
+        elif allergies and allergies != "none" and _words(name) & _words(allergies):
+            reason = "patient allergy"
+        else:
+            for kind, words in BLOCKED.items():
+                if any(w in low for w in words) or low.endswith(("mycin", "floxacin", "cycline")) or low.startswith("cef"):
+                    reason = kind
+                    break
+        (rejected.append((name, reason)) if reason else ok.append({"name": name, "reason": str(item.get("reason", ""))[:80]}))
+    return ok[:4], rejected

@@ -1,11 +1,23 @@
+# Pakistan AI Doctor Assistant - install with:  pip install -r requirements.txt
+
+# --- APIs and settings ---
 requests
 python-dotenv
+
+# --- Reading documents ---
 pypdf
+
+# --- LangChain / agents / LLM (Qwen on Groq) ---
 langchain-core
 langchain-community
 langchain-text-splitters
 langchain-groq
-langchain-huggingface
 langgraph
-faiss-cpu
+
+# --- Embeddings and vector database ---
+langchain-huggingface
 sentence-transformers
+faiss-cpu
+
+# --- Web interface ---
+streamlit
